@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Industrial Safety Dashboard</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: white; text-align: center; }
+        .card { background: #1e1e1e; padding: 20px; display: inline-block; border-radius: 8px; margin: 15px; min-width: 200px; }
+        .status-safe { color: #00ff00; font-size: 24px; font-weight: bold; }
+        .status-danger { color: #ff0000; font-size: 24px; font-weight: bold; animation: blink 1s infinite; }
+        #log-box { background: #000; height: 150px; overflow-y: scroll; text-align: left; padding: 10px; margin: 20px auto; width: 60%; font-family: monospace; }
+        @keyframes blink { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+    <h1>Industrial Safety & Resource Management Dashboard</h1>
+    <hr>
+    
+    <div class="card">
+        <h3>Room Temperature</h3>
+        <p id="temp-val" style="font-size: 28px;">-- °C</p>
+    </div>
+
+    <div class="card">
+        <h3>System Status</h3>
+        <p id="status-val" class="status-safe">SAFE</p>
+    </div>
+
+    <div class="card">
+        <h3>AI Latency</h3>
+        <p id="latency-val">-- ms</p>
+    </div>
+
+    <h3>System Event Logs</h3>
+    <div id="log-box"></div>
+
+    <script>
+        const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
+
+        client.on('connect', () => {
+            client.subscribe('room/telemetry/temperature');
+            client.subscribe('room/safety/status');
+            client.subscribe('room/analytics/latency');
+        });
+
+        client.on('message', (topic, message) => {
+            const msgStr = message.toString();
+            const logBox = document.getElementById('log-box');
+            
+            if (topic === 'room/telemetry/temperature') {
+                document.getElementById('temp-val').innerText = msgStr + " °C";
+            }
+            
+            if (topic === 'room/safety/status') {
+                const statusEl = document.getElementById('status-val');
+                statusEl.innerText = msgStr;
+                if(msgStr === "SAFE") {
+                    statusEl.className = "status-safe";
+                } else {
+                    statusEl.className = "status-danger";
+                }
+            }
+
+            if (topic === 'room/analytics/latency') {
+                document.getElementById('latency-val').innerText = msgStr + " ms";
+            }
+
+            // Append to log box
+            logBox.innerHTML += `[${new Date().toLocaleTimeString()}] ${topic}: ${msgStr}<br>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        });
+    </script>
+</body>
+</html>

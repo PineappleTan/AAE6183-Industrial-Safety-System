@@ -1,0 +1,12 @@
+# Ignore Python virtual environments
+edge_ai_host/venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Ignore Node.js dependencies
+dashboard/node_modules/
+
+# Ignore local configuration or system files
+.DS_Store
+Thumbs.db
