@@ -11,8 +11,8 @@
 #define BUZZER 21
 
 // Network Configurations
-const char* ssid = "165JAP5_2.4G";          // <-- Your Wi-Fi Name
-const char* password = "309969san";        // <-- Your Wi-Fi Password
+const char* ssid = "笨笨小凤梨🍍";          // <-- Your Wi-Fi Name
+const char* password = "309969tze";        // <-- Your Wi-Fi Password
 const char* mqtt_server = "broker.hivemq.com"; 
 
 WiFiClient espClient;
