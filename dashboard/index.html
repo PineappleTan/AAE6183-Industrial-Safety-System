@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Industrial Safety Dashboard</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        /* Modern Dark Mode Styling */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #121212; 
+            color: #ffffff; 
+            text-align: center; 
+            margin: 0;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #f1f1f1;
+            margin-bottom: 5px;
+        }
+
+        p.subtitle {
+            color: #888888;
+            margin-top: 0;
+            margin-bottom: 30px;
+        }
+
+        .metrics-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        .card { 
+            background: #1e1e1e; 
+            padding: 20px; 
+            border-radius: 12px; 
+            min-width: 220px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid #2d2d2d;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: #aaaaaa;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card p {
+            font-size: 32px; 
+            font-weight: bold; 
+            margin: 10px 0 0 0;
+        }
+
+        .status-safe { 
+            color: #00ff66; 
+        }
+
+        .status-danger { 
+            color: #ff3333; 
+            animation: blink 1s infinite; 
+        }
+
+        .video-card {
+            background: #1e1e1e;
+            width: 65%;
+            max-width: 700px;
+            margin: 0 auto 30px auto;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid #2d2d2d;
+        }
+
+        .video-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background: #000000;
+        }
+
+        .log-container {
+            width: 65%;
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: left;
+        }
+
+        .log-container h3 {
+            color: #aaaaaa;
+            margin-bottom: 8px;
+        }
+
+        #log-box { 
+            background: #000000; 
+            height: 180px; 
+            overflow-y: auto; 
+            padding: 15px; 
+            border-radius: 8px; 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 13px;
+            color: #00ff66;
+            border: 1px solid #2d2d2d;
+            line-height: 1.5;
+        }
+
+        @keyframes blink { 
+            50% { opacity: 0.2; } 
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Industrial Safety & Resource Management System</h1>
+    <p class="subtitle">AAE6183 Group Assignment Real-Time Dashboard</p>
+
+    <div class="metrics-container">
+        <div class="card">
+            <h3>Room Temperature</h3>
+            <p id="temp-val">-- °C</p>
+        </div>
+
+        <div class="card">
+            <h3>Room Humidity</h3>
+            <p id="humidity-val">-- %</p>
+        </div>
+
+        <div class="card">
+            <h3>System Status</h3>
+            <p id="status-val" class="status-safe">SAFE</p>
+        </div>
+
+        <div class="card">
+            <h3>Edge AI Latency</h3>
+            <p id="latency-val">-- ms</p>
+        </div>
+    </div>
+
+    <div class="video-card">
+        <h3>Live Edge AI Vision Feed</h3>
+        <img src="http://localhost:5000/video_feed" alt="Waiting for Python Camera Stream...">
+    </div>
+
+    <div class="log-container">
+        <h3>System Event Logs</h3>
+        <div id="log-box">System initialized. Awaiting MQTT stream...<br></div>
+    </div>
+
+    <script>
+        // FIXED: Passes a completely unique random Client ID string to ensure HiveMQ doesn't drop the browser session
+        const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt', {
+            clientId: 'aae6183_dashboard_' + Math.random().toString(16).substr(2, 8),
+            connectTimeout: 4000
+        });
+
+        const logBox = document.getElementById('log-box');
+        const tempVal = document.getElementById('temp-val');
+        const humidityVal = document.getElementById('humidity-val');
+        const statusVal = document.getElementById('status-val');
+        const latencyVal = document.getElementById('latency-val');
+
+        client.on('connect', () => {
+            logBox.innerHTML += `[INFO] Connected to MQTT Broker successfully.<br>`;
+            client.subscribe('room/telemetry/temperature');
+            client.subscribe('room/telemetry/humidity');
+            client.subscribe('room/safety/status');
+            client.subscribe('room/analytics/latency');
+        });
+
+        client.on('message', (topic, message) => {
+            const msgStr = message.toString();
+            const timestamp = new Date().toLocaleTimeString();
+            
+            if (topic === 'room/telemetry/temperature') {
+                tempVal.innerText = msgStr + " °C";
+            }
+
+            if (topic === 'room/telemetry/humidity') {
+                humidityVal.innerText = msgStr + " %";
+            }
+            
+            if (topic === 'room/safety/status') {
+                statusVal.innerText = msgStr;
+                if (msgStr === "SAFE") {
+                    statusVal.className = "status-safe";
+                } else {
+                    statusVal.className = "status-danger";
+                }
+            }
+
+            if (topic === 'room/analytics/latency') {
+                latencyVal.innerText = msgStr + " ms";
+            }
+
+            logBox.innerHTML += `[${timestamp}] <strong>${topic}</strong>: ${msgStr}<br>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        });
+
+        client.on('error', (err) => {
+            logBox.innerHTML += `[ERROR] Broker Connection Failed: ${err}<br>`;
+        });
+    </script>
+</body>
+</html>
