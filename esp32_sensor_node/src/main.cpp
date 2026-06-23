@@ -12,6 +12,9 @@
 #define ALARM_BUTTON 16     // <-- Button connected to GPIO 16 (active low)
 #define False_Alarm 17
 
+int alarmState = 0;
+int falseAlarm = 0;
+
 // Network Configurations
 const char* ssid = "你爹的网";          // <-- Your Wi-Fi Name
 const char* password = "korone1001";        // <-- Your Wi-Fi Password
@@ -38,8 +41,8 @@ void setup() {
   pinMode(GREEN_LED, OUTPUT);
   pinMode(RED_LED, OUTPUT);
   pinMode(BUZZER, OUTPUT);
-  pinMode(ALARM_BUTTON, INPUT); // Button with internal pull-up resistor
-  pinMode(False_Alarm, INPUT); // False Alarm Button with internal pull-up resistor
+  pinMode(ALARM_BUTTON, INPUT_PULLDOWN); // Button with internal pull-up resistor
+  pinMode(False_Alarm, INPUT_PULLDOWN); // False Alarm Button with internal pull-up resistor
   
   // Set default initial state (Assuming standard Active-Low buzzer modules)
   digitalWrite(GREEN_LED, HIGH); 
@@ -75,32 +78,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   
   if (String(topic) == "room/safety/status") {
-    if (message == "SAFE") {
+    if (message == "FIRE_DETECTED") {
+      cameraEmergencyActive = true;
+      triggerAlarm();
+    } else if (message == "SAFE") {
       cameraEmergencyActive = false;
       float currentTemp = dht.readTemperature();
       if (isnan(currentTemp) || currentTemp <= 40.0) {
-        if (digitalRead(ALARM_BUTTON) == HIGH) { // Active Low Button Press Detected
-        Serial.println("EMERGENCY BUTTON ACTIVATED!");
-        client.publish("room/safety/status", "EMERGENCY_BUTTON");
-        triggerAlarm();
-        unsigned long waitStart = millis();
-        while (millis() - waitStart < 5000) {
-          Serial.println("EMERGENCY BUTTON ACTIVATED!");
-          client.publish("room/safety/status", "EMERGENCY_BUTTON");
-          if (digitalRead(False_Alarm) == HIGH) { // Active Low False Alarm Button Press Detected
-            digitalWrite(ALARM_BUTTON, 0); // Reset the button state to avoid multiple triggers
-            clearAlarm();
-          }
-        }
         clearAlarm();
-        }
       }
-    } else if (message == "FIRE_DETECTED") {
-      cameraEmergencyActive = true;
-      triggerAlarm();
-    }
-    else {
-      clearAlarm();
     }
   }
 }
@@ -170,6 +156,28 @@ void loop() {
     char humidityStr[8];
     dtostrf(humidity, 6, 2, humidityStr);
     client.publish("room/telemetry/humidity", humidityStr);
+
+    alarmState = digitalRead(ALARM_BUTTON);
+        if (alarmState >0) { // Active Low Button Press Detected
+          Serial.println("EMERGENCY BUTTON ACTIVATED!");
+          client.publish("room/safety/status", "EMERGENCY_BUTTON");
+          triggerAlarm();
+          unsigned long waitStart = millis();
+          while (millis() - waitStart < 5000) {
+            client.publish("room/safety/status", "EMERGENCY_BUTTON");
+            falseAlarm = digitalRead(False_Alarm);
+            if (falseAlarm > 0) { // Active Low False Alarm Button Press Detected
+              falseAlarm = 0; // Reset False Alarm Button State
+              clearAlarm();
+              break; // Exit early if False Alarm Button is pressed
+            }
+          }
+          alarmState = 0; // Reset alarm state after 5 seconds
+          clearAlarm();
+          client.publish("room/safety/status", "SAFE");
+        } else {
+            client.publish("room/safety/status", "SAFE");
+        }
 
     if (temp > 40.0) {
       Serial.println("CRITICAL HEAT DETECTED BY SENSOR!");
