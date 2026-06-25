@@ -35,6 +35,12 @@
             margin-bottom: 30px;
         }
 
+        .status-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
         .card { 
             background: #1e1e1e; 
             padding: 20px; 
@@ -118,6 +124,7 @@
 <body>
 
     <h1>Industrial Safety & Resource Management System</h1>
+    <h1>Real-Time Nuclear Power Plant Monitoring Simulator</h1>
     <p class="subtitle">AAE6183 Group Assignment Real-Time Dashboard</p>
 
     <div class="metrics-container">
@@ -132,13 +139,20 @@
         </div>
 
         <div class="card">
-            <h3>System Status</h3>
-            <p id="status-val" class="status-safe">SAFE</p>
+            <h3>Room Pressure</h3>
+            <p id="pressure-val">-- hPa</p>
         </div>
 
         <div class="card">
             <h3>Edge AI Latency</h3>
             <p id="latency-val">-- ms</p>
+        </div>
+    </div>
+
+    <div class="status-row">
+        <div class="card">
+            <h3>System Status</h3>
+            <p id="status-val" class="status-safe">SAFE</p>
         </div>
     </div>
 
@@ -162,6 +176,7 @@
         const logBox = document.getElementById('log-box');
         const tempVal = document.getElementById('temp-val');
         const humidityVal = document.getElementById('humidity-val');
+        const pressureVal = document.getElementById('pressure-val');
         const statusVal = document.getElementById('status-val');
         const latencyVal = document.getElementById('latency-val');
 
@@ -169,6 +184,7 @@
             logBox.innerHTML += `[INFO] Connected to MQTT Broker successfully.<br>`;
             client.subscribe('room/telemetry/temperature');
             client.subscribe('room/telemetry/humidity');
+            client.subscribe('room/telemetry/pressure');
             client.subscribe('room/safety/status');
             client.subscribe('room/analytics/latency');
         });
@@ -183,6 +199,10 @@
 
             if (topic === 'room/telemetry/humidity') {
                 humidityVal.innerText = msgStr + " %";
+            }
+
+            if (topic === 'room/telemetry/pressure') {
+                pressureVal.innerText = (msgStr === '--') ? '-- hPa' : msgStr + " hPa";
             }
             
             if (topic === 'room/safety/status') {

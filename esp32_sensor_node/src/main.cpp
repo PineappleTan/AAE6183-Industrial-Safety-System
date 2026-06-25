@@ -2,15 +2,18 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <DHT.h>
+#include <Wire.h>
+#include <Adafruit_BMP085.h>
 
 // Safe, Neutral Hardware Pin Definitions (Avoids Flash & Boot Strap Conflicts)
 #define DHTPIN 4
 #define DHTTYPE DHT11       // Change to DHT22 if using the white sensor module
 #define GREEN_LED 18
 #define RED_LED 19
-#define BUZZER 21
+#define BUZZER 23
 #define ALARM_BUTTON 16     // <-- Button connected to GPIO 16 (active low)
 #define False_Alarm 17
+Adafruit_BMP085 bmp;
 
 int alarmState = 0;
 int falseAlarm = 0;
@@ -49,6 +52,7 @@ void setup() {
   digitalWrite(RED_LED, LOW);
   digitalWrite(BUZZER, HIGH); // Pull High immediately to keep Active-Low buzzers silent on boot
   
+  bmp.begin();
   dht.begin();
   setup_wifi();
   
@@ -132,6 +136,7 @@ void loop() {
 
     float temp = dht.readTemperature();
     float humidity = dht.readHumidity();
+    float pressure = bmp.readPressure() / 100.0F; // convert Pa to hPa
 
     if (isnan(temp)) {
       Serial.println("Failed to read temperature from DHT sensor!");
@@ -150,12 +155,24 @@ void loop() {
     Serial.print(humidity);
     Serial.println(" %");
 
-    char tempStr[8];
-    dtostrf(temp, 6, 2, tempStr);
+    Serial.print(F("Pressure = "));
+    Serial.print(pressure);
+    Serial.println(" hPa");
+
+    char tempStr[16];
+    snprintf(tempStr, sizeof(tempStr), "%.2f", temp);
     client.publish("room/telemetry/temperature", tempStr);
-    char humidityStr[8];
-    dtostrf(humidity, 6, 2, humidityStr);
+    char humidityStr[16];
+    snprintf(humidityStr, sizeof(humidityStr), "%.2f", humidity);
     client.publish("room/telemetry/humidity", humidityStr);
+    // Only publish pressure/altitude if valid (not NaN and not 0)
+    if (!isnan(pressure) && pressure > 800.0) {
+      char pressureStr[16];
+      snprintf(pressureStr, sizeof(pressureStr), "%.2f", pressure);
+      client.publish("room/telemetry/pressure", pressureStr);
+    } else {
+      client.publish("room/telemetry/pressure", "--");
+    }
 
     alarmState = digitalRead(ALARM_BUTTON);
         if (alarmState >0) { // Active Low Button Press Detected
@@ -179,9 +196,23 @@ void loop() {
             client.publish("room/safety/status", "SAFE");
         }
 
-    if (temp > 40.0) {
-      Serial.println("CRITICAL HEAT DETECTED BY SENSOR!");
-      client.publish("room/safety/status", "HIGH_TEMP");
+    if (temp > 35.0) {
+      if (pressure > 1017.0) {
+        Serial.println("EXTREMELY DANGEROUS EVACUATE IMMEDIATELY!");
+        client.publish("room/safety/status", "EXTREMELY DANGEROUS EVACUATE IMMEDIATELY!");
+      } else {
+        Serial.println("CRITICAL HEAT DETECTED BY SENSOR!");
+        client.publish("room/safety/status", "HIGH_TEMP");
+      }
+      triggerAlarm();
+    } else if(pressure > 1017.0) {
+      if (temp > 35.0) {
+        Serial.println("EXTREMELY DANGEROUS EVACUATE IMMEDIATELY!");
+        client.publish("room/safety/status", "EXTREMELY DANGEROUS EVACUATE IMMEDIATELY!");
+      } else {
+        Serial.println("CRITICAL PRESSURE DETECTED BY SENSOR!");
+        client.publish("room/safety/status", "HIGH_PRESSURE");
+      }
       triggerAlarm();
     } else {
       if (!cameraEmergencyActive) {
