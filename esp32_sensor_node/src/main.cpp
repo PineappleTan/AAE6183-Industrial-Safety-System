@@ -179,8 +179,7 @@ void loop() {
           Serial.println("EMERGENCY BUTTON ACTIVATED!");
           client.publish("room/safety/status", "EMERGENCY_BUTTON");
           triggerAlarm();
-          unsigned long waitStart = millis();
-          while (millis() - waitStart < 5000) {
+          while (alarmState > 0) { // Wait for the button to be released
             client.publish("room/safety/status", "EMERGENCY_BUTTON");
             falseAlarm = digitalRead(False_Alarm);
             if (falseAlarm > 0) { // Active Low False Alarm Button Press Detected
@@ -189,7 +188,7 @@ void loop() {
               break; // Exit early if False Alarm Button is pressed
             }
           }
-          alarmState = 0; // Reset alarm state after 5 seconds
+          alarmState = 0; // Reset alarm state 
           clearAlarm();
           client.publish("room/safety/status", "SAFE");
         } else {
