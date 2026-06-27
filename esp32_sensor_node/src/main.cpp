@@ -85,12 +85,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     if (message == "FIRE_DETECTED") {
       cameraEmergencyActive = true;
       triggerAlarm();
-    } else if (message == "SAFE") {
+    } else {
       cameraEmergencyActive = false;
-      float currentTemp = dht.readTemperature();
-      if (isnan(currentTemp) || currentTemp <= 40.0) {
-        clearAlarm();
-      }
     }
   }
 }
@@ -195,7 +191,7 @@ void loop() {
             client.publish("room/safety/status", "SAFE");
         }
 
-    if (temp > 35.0) {
+    if (temp > 37.0) {
       if (pressure > 1017.0) {
         Serial.println("EXTREMELY DANGEROUS EVACUATE IMMEDIATELY!");
         client.publish("room/safety/status", "EXTREMELY DANGEROUS EVACUATE IMMEDIATELY!");
@@ -205,7 +201,7 @@ void loop() {
       }
       triggerAlarm();
     } else if(pressure > 1017.0) {
-      if (temp > 35.0) {
+      if (temp > 37.0) {
         Serial.println("EXTREMELY DANGEROUS EVACUATE IMMEDIATELY!");
         client.publish("room/safety/status", "EXTREMELY DANGEROUS EVACUATE IMMEDIATELY!");
       } else {

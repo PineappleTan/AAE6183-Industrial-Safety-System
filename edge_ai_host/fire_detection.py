@@ -65,9 +65,6 @@ def generate_frames():
         # --- FIXED MQTT SAFETY DUAL-STATE PIPELINE ---
         if fire_detected:
             client.publish("room/safety/status", "FIRE_DETECTED")
-        else:
-            # Added: Constantly sends a safe heartbeat when no fire labels are present
-            client.publish("room/safety/status", "SAFE")
         
         # Encode the frame as JPEG to send to HTML
         ret, buffer = cv2.imencode('.jpg', frame)
